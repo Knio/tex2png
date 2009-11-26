@@ -8,7 +8,7 @@ import subprocess
 
 
 class Latex(object):
-  TEX = r'''
+  INLINE = r'''
 \documentclass[fleqn]{article} 
 \usepackage{amssymb,amsmath,bm,color}
 \usepackage[latin1]{inputenc}
@@ -20,17 +20,34 @@ class Latex(object):
 %s
 \end{document}
 '''
+  BLOCK = r'''
+\documentclass[fleqn]{article} 
+\usepackage{amssymb,amsmath,bm,color}
+\usepackage[latin1]{inputenc}
+\begin{document}
+\thispagestyle{empty}
+\mathindent0cm
+\parindent0cm 
+%s
+\end{document}
+'''
+
   def __init__(self, doc, dpi=120):
     self.doc = doc
     self.dpi = dpi
     
   def write(self):
+    if re.match('^\$[^$]*\$$', self.doc):
+      TEX = self.INLINE
+    else:
+      TEX = self.BLOCK
+
     try:
       workdir = tempfile.gettempdir()
       fd, texfile = tempfile.mkstemp('.tex', 'eq', workdir, True)
 
       with os.fdopen(fd, 'w+') as f:
-        f.write(self.TEX % self.doc)
+        f.write(TEX % self.doc)
       
       return self.convert_file(texfile, workdir)
 
@@ -49,7 +66,7 @@ class Latex(object):
       sout, serr = p.communicate()
       # Something bad happened, abort
       if p.returncode != 0:
-          raise Exception('latex error', serr)
+          raise Exception('latex error', serr, sout)
 
       # Convert the DVI file to PNG's
       dvifile = infile.replace('.tex', '.dvi')
@@ -61,8 +78,11 @@ class Latex(object):
       if p.returncode != 0:
         raise Exception('dvipng error', serr)
       
-      depth = int(re.search(r'\[1 depth=(\d+)\]', sout).group(1))
-      
+      try:
+        depth = int(re.search(r'\[1 depth=(-?\d+)\]', sout).group(1))
+      except:
+        depth = 0
+
       png = open(pngfile,'rb').read()
       return png, depth
 
