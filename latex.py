@@ -37,7 +37,8 @@ class Latex(object):
     self.dpi = dpi
     
   def write(self):
-    if re.match('^\$[^$]*\$$', self.doc):
+    inline = bool(re.match('^\$[^$]*\$$', self.doc))
+    if inline:
       TEX = self.INLINE
     else:
       TEX = self.BLOCK
@@ -49,7 +50,10 @@ class Latex(object):
       with os.fdopen(fd, 'w+') as f:
         f.write(TEX % self.doc)
       
-      return self.convert_file(texfile, workdir)
+      png, depth = self.convert_file(texfile, workdir)
+      if not inline:
+        depth = 0
+      return png, depth
 
     finally:
       if os.path.exists(texfile):
